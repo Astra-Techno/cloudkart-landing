@@ -347,7 +347,6 @@ CREATE TABLE `#__menu_items` (
   `parent_id` int DEFAULT NULL,
   `title` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `page_id` int DEFAULT NULL,
   `target` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '_self',
   `icon` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `css_class` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -356,14 +355,12 @@ CREATE TABLE `#__menu_items` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `page_id` (`page_id`),
   KEY `idx_menu_id` (`menu_id`),
   KEY `idx_parent_id` (`parent_id`),
   KEY `idx_sort_order` (`sort_order`),
   KEY `idx_status` (`status`),
   CONSTRAINT `#__menu_items_ibfk_1` FOREIGN KEY (`menu_id`) REFERENCES `#__menus` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `#__menu_items_ibfk_2` FOREIGN KEY (`parent_id`) REFERENCES `#__menu_items` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `#__menu_items_ibfk_3` FOREIGN KEY (`page_id`) REFERENCES `#__pages` (`id`) ON DELETE SET NULL
+  CONSTRAINT `#__menu_items_ibfk_2` FOREIGN KEY (`parent_id`) REFERENCES `#__menu_items` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -386,6 +383,7 @@ CREATE TABLE `#__menus` (
 
 CREATE TABLE `#__order_items` (
   `id` int NOT NULL AUTO_INCREMENT,
+  `vendor_id` int unsigned DEFAULT NULL,
   `order_id` int NOT NULL,
   `product_id` int DEFAULT NULL,
   `combo_pack_id` int DEFAULT NULL,
@@ -393,11 +391,19 @@ CREATE TABLE `#__order_items` (
   `quantity` int NOT NULL DEFAULT '1',
   `unit_price` decimal(10,2) NOT NULL,
   `total_price` decimal(10,2) NOT NULL,
+  `commission_rate` decimal(5,2) DEFAULT NULL,
+  `commission_amount` decimal(10,2) DEFAULT NULL,
+  `vendor_amount` decimal(10,2) DEFAULT NULL,
+  `vendor_fulfil_status` enum('pending','processing','shipped','delivered') COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
+  `tracking_number` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `courier_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `fulfilled_at` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_order_id` (`order_id`),
   KEY `idx_product_id` (`product_id`),
-  KEY `idx_combo_pack_id` (`combo_pack_id`)
+  KEY `idx_combo_pack_id` (`combo_pack_id`),
+  KEY `idx_vendor_id` (`vendor_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -440,7 +446,7 @@ CREATE TABLE `#__orders` (
   `payment_gateway_order_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `payment_gateway_response` text COLLATE utf8mb4_unicode_ci,
   `payment_completed_at` timestamp NULL DEFAULT NULL,
-  `order_status` enum('pending','confirmed','processing','shipped','delivered','cancelled') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `order_status` enum('pending','confirmed','processing','shipped','delivered','cancelled','returned') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
   `preferred_delivery_date` date DEFAULT NULL,
   `special_instructions` text COLLATE utf8mb4_unicode_ci,
   `shipping_address` json DEFAULT NULL,
@@ -479,53 +485,6 @@ CREATE TABLE `#__otp_verifications` (
   KEY `idx_phone_otp` (`phone`,`otp_code`),
   KEY `idx_expires_at` (`expires_at`),
   KEY `idx_is_used` (`is_used`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
---
-
-CREATE TABLE `#__page_blocks` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `page_id` int NOT NULL,
-  `block_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `content` longtext COLLATE utf8mb4_unicode_ci,
-  `settings` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
-  `sort_order` int DEFAULT '0',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_page_id` (`page_id`),
-  KEY `idx_sort_order` (`sort_order`),
-  KEY `idx_block_type` (`block_type`),
-  CONSTRAINT `#__page_blocks_ibfk_1` FOREIGN KEY (`page_id`) REFERENCES `#__pages` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `#__page_blocks_chk_1` CHECK (json_valid(`settings`))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
---
-
-CREATE TABLE `#__pages` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `title` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `slug` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `content` longtext COLLATE utf8mb4_unicode_ci,
-  `meta_title` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `meta_description` text COLLATE utf8mb4_unicode_ci,
-  `meta_keywords` text COLLATE utf8mb4_unicode_ci,
-  `og_image` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `status` enum('published','draft','archived') COLLATE utf8mb4_unicode_ci DEFAULT 'draft',
-  `template` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT 'default',
-  `is_homepage` tinyint(1) DEFAULT '0',
-  `requires_auth` tinyint(1) DEFAULT '0',
-  `hide_global_layout` tinyint(1) DEFAULT '0',
-  `sort_order` int DEFAULT '0',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `slug` (`slug`),
-  KEY `idx_slug` (`slug`),
-  KEY `idx_status` (`status`),
-  KEY `idx_sort_order` (`sort_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -709,7 +668,8 @@ CREATE TABLE `#__products` (
   KEY `idx_brand_id` (`brand_id`),
   KEY `idx_has_variants` (`has_variants`),
   CONSTRAINT `#__products_chk_1` CHECK (json_valid(`gallery_images`)),
-  CONSTRAINT `#__products_chk_2` CHECK (json_valid(`tags`))
+  CONSTRAINT `#__products_chk_2` CHECK (json_valid(`tags`)),
+  CONSTRAINT `chk_stock_non_negative` CHECK (`stock_quantity` >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -1122,6 +1082,21 @@ CREATE TABLE `#__exchange_rates` (
   `updated_at`  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_currency` (`currency`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+
+CREATE TABLE `#__password_reset_tokens` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int unsigned NOT NULL,
+  `token` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `used` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_token` (`token`),
+  KEY `idx_user` (`user_id`),
+  KEY `idx_expires` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --

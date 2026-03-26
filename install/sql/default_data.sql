@@ -168,4 +168,82 @@ INSERT INTO `#__themes` (id, name, version, description, is_active, schema_json)
 ('organic',  'Organic Store',   '1.0.0', 'Fresh, nature-inspired store theme',                    0, '{}'),
 ('base',     'Base Store',      '1.0.0', 'Minimal base theme',                                    0, '{}');
 
+-- Email Notification Toggles
+INSERT INTO `#__settings` (setting_key, setting_value, setting_type, is_public) VALUES
+('email_notify_order_placed', '1', 'boolean', 0),
+('email_notify_order_confirmed', '1', 'boolean', 0),
+('email_notify_order_shipped', '1', 'boolean', 0),
+('email_notify_order_delivered', '1', 'boolean', 0),
+('email_notify_order_cancelled', '1', 'boolean', 0),
+('email_notify_dispatch', '1', 'boolean', 0),
+('email_notify_low_stock', '1', 'boolean', 0),
+('email_notify_scheme_payment', '0', 'boolean', 0),
+('email_notify_scheme_reupload', '0', 'boolean', 0)
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+-- Security
+INSERT INTO `#__settings` (setting_key, setting_value, setting_type, is_public) VALUES
+('force_ssl', '0', 'boolean', 0),
+('enable_security_headers', '0', 'boolean', 0)
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+-- Google OAuth
+INSERT INTO `#__settings` (setting_key, setting_value, setting_type, is_public) VALUES
+('google_client_id', '', 'string', 0),
+('google_client_secret', '', 'string', 0)
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+-- WhatsApp Credentials & Missing Notification Key
+INSERT INTO `#__settings` (setting_key, setting_value, setting_type, is_public) VALUES
+('whatsapp_access_token', '', 'string', 0),
+('whatsapp_phone_number_id', '', 'string', 0),
+('whatsapp_notify_cancell', '1', 'boolean', 1)
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+-- Shiprocket
+INSERT INTO `#__settings` (setting_key, setting_value, setting_type, is_public) VALUES
+('shiprocket_webhook_secret', '', 'string', 0)
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+-- SMTP Aliases
+INSERT INTO `#__settings` (setting_key, setting_value, setting_type, is_public) VALUES
+('email_from', '', 'string', 0),
+('email_from_name', '', 'string', 0)
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+-- Store URL & Email Aliases
+INSERT INTO `#__settings` (setting_key, setting_value, setting_type, is_public) VALUES
+('store_url', '', 'string', 1),
+('site_email', '', 'string', 1)
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+-- Payment Gateway Test Mode Flags
+INSERT INTO `#__settings` (setting_key, setting_value, setting_type, is_public) VALUES
+('razorpay_test_mode', '1', 'boolean', 0),
+('phonepe_salt_index', '1', 'string', 0),
+('phonepe_test_mode', '1', 'boolean', 0),
+('cashfree_test_mode', '1', 'boolean', 0),
+('applepay_domain_name', '', 'string', 0),
+('applepay_private_key_path', '', 'string', 0),
+('applepay_certificate_path', '', 'string', 0),
+('applepay_test_mode', '1', 'boolean', 0),
+('googlepay_merchant_name', '', 'string', 0),
+('googlepay_test_mode', '1', 'boolean', 0),
+('paypal_test_mode', '1', 'boolean', 0),
+('affirm_test_mode', '1', 'boolean', 0),
+('klarna_region', 'EU', 'string', 0),
+('klarna_test_mode', '1', 'boolean', 0)
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+-- Bank Transfer / UPI Details
+INSERT INTO `#__settings` (setting_key, setting_value, setting_type, is_public) VALUES
+('bank_name', '', 'string', 0),
+('bank_account_number', '', 'string', 0),
+('bank_ifsc_code', '', 'string', 0),
+('bank_account_holder_name', '', 'string', 0),
+('upi_id', '', 'string', 0),
+('upi_phone', '', 'string', 0),
+('payment_qr_code', '', 'string', 0)
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
 SET FOREIGN_KEY_CHECKS = 1;

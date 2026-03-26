@@ -31,6 +31,7 @@ class StoreProvisioningService {
             'base_path'   => $basePath,
             'dist_path'   => $basePath . DIRECTORY_SEPARATOR . 'dist',
             'stores_path' => $basePath . DIRECTORY_SEPARATOR . 'stores',
+            'pages_path'  => $basePath . DIRECTORY_SEPARATOR . 'install' . DIRECTORY_SEPARATOR . 'pages',
             'schema_path' => $basePath . DIRECTORY_SEPARATOR . 'install' . DIRECTORY_SEPARATOR . 'sql' . DIRECTORY_SEPARATOR . 'schema.sql',
             'data_path'   => $basePath . DIRECTORY_SEPARATOR . 'install' . DIRECTORY_SEPARATOR . 'sql' . DIRECTORY_SEPARATOR . 'default_data.sql',
             'db_user'     => DB_USER,
@@ -282,8 +283,8 @@ class StoreProvisioningService {
         );
         $stmt->execute([$adminData['name'], $adminData['email'], $passwordHash]);
 
-        // 6. Personalize default page content (replace {{PLACEHOLDER}} tokens seeded by default_data.sql)
-        $this->personalizePages($storeDb, $tablePrefix, $storeData, $adminData);
+        // 6. Deploy & personalize default page JSON files (file-based, not DB)
+        $this->deployPages($storePath, $storeData, $adminData);
 
         // 7. Seed themes.schema_json, theme_settings defaults, and theme_config blobs.
         //    default_data.sql seeds themes with schema_json='{}'; this fills in real schemas,
@@ -422,26 +423,41 @@ class StoreProvisioningService {
         return '#' . implode('', array_map(fn($v) => str_pad(dechex($clamp($v)), 2, '0', STR_PAD_LEFT), [$r, $g, $b]));
     }
 
-    private function personalizePages($db, $tablePrefix, $storeData, $adminData) {
+    /**
+     * Deploy default page JSON files into the store's pages/ directory
+     * and replace {{PLACEHOLDER}} tokens with actual store data.
+     */
+    private function deployPages(string $storePath, array $storeData, array $adminData): void {
+        $source = $this->config['pages_path'];
+        if (!is_dir($source)) {
+            $source = $this->config['dist_path'] . DIRECTORY_SEPARATOR . 'pages';
+        }
+        if (!is_dir($source)) {
+            error_log("deployPages: no page templates found at {$this->config['pages_path']} or {$source}");
+            return;
+        }
+
+        $destDir = $storePath . DIRECTORY_SEPARATOR . 'pages';
+        if (!is_dir($destDir)) {
+            mkdir($destDir, 0755, true);
+        }
+
         $replacements = [
             '{{STORE_NAME}}'        => $storeData['store_name'],
             '{{STORE_DESCRIPTION}}' => $storeData['tagline'] ?? '',
             '{{STORE_PHONE}}'       => $adminData['phone'] ?? '',
             '{{STORE_EMAIL}}'       => $adminData['email'],
             '{{STORE_ADDRESS}}'     => $storeData['business_address'] ?? '',
-            '{{STORE_HOURS}}'       => $storeData['business_hours']   ?? 'Mon–Sat: 9AM – 6PM',
+            '{{STORE_HOURS}}'       => $storeData['business_hours']   ?? 'Mon-Sat: 9AM - 6PM',
+            '{{TIMESTAMP}}'         => date('c'),
         ];
 
-        // One UPDATE per token keeps it simple and avoids building a giant dynamic query
-        foreach ($replacements as $token => $value) {
-            $safeValue = $db->quote($value);
-            $safeToken = $db->quote($token);
-            $db->exec("UPDATE `{$tablePrefix}pages` SET content = REPLACE(content, {$safeToken}, {$safeValue}) WHERE content LIKE CONCAT('%', {$safeToken}, '%')");
+        foreach (glob($source . DIRECTORY_SEPARATOR . '*.json') as $file) {
+            $content = file_get_contents($file);
+            if ($content === false) continue;
+            $content = str_replace(array_keys($replacements), array_values($replacements), $content);
+            file_put_contents($destDir . DIRECTORY_SEPARATOR . basename($file), $content);
         }
-
-        // Also update meta titles for the five default pages
-        $db->prepare("UPDATE `{$tablePrefix}pages` SET meta_title = CONCAT(title, ' | ', ?) WHERE slug IN ('about-us','contact-us','terms-conditions','privacy-policy','return-policy')")
-           ->execute([$storeData['store_name']]);
     }
 
     private function generateStoreSettingsJson(\PDO $db, $tablePrefix, $storePath) {
